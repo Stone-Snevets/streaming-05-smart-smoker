@@ -73,6 +73,9 @@ def main(host_name = 'localhost', queue_name = 'default_queue'):
         # Create a channel
         ch = conn.channel()
 
+        # Delete any existing queues with the same name
+        ch.queue_delete(queue=queue_name)
+
         # Declare the queue
         #-> Make the queue durable
         #-> Use the channel to do so
@@ -83,10 +86,10 @@ def main(host_name = 'localhost', queue_name = 'default_queue'):
 
         # Configure the channel to listen to the correct queue
         #-> Let callback handle the acknowledging of messages
-        ch.basic_consume(queue=queue_name, on_message_callback=callback)
+        ch.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=False)
 
         # Start consuming messages
-        logging.info('Ready for action!')
+        logging.info('Ready for action! Press CTRL + C to manually close the connection.')
         ch.start_consuming()
     
     except Exception as e:
