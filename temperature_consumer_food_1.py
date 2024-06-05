@@ -11,16 +11,12 @@
 # ===== Preliminary Stuff =====================================================
 
 # Imports
-import logging
 import pika
 import sys
 
 # Constants
 HOST = 'localhost'
 QUEUE_NAME = 'str5_q_food_1'
-
-# Create logger
-logging.basicConfig(level=logging.INFO, format = "%(asctime)s - %(level)s - %(message)s")
 
 # ===== Functions =============================================================
 
@@ -41,7 +37,7 @@ def callback(ch, method, properties, body):
     """
 
     # Acknowledge that the message is received and processed
-    logging.info(f'Received and processed {body.decode()}')
+    print(f'Received and processed {body.decode()}')
     ch.basic_ack(delivery_tag = method.delivery_tag)
 
 
@@ -63,9 +59,9 @@ def main(host_name = 'localhost', queue_name = 'default_queue'):
         conn = pika.BlockingConnection(pika.ConnectionParameters(host = host_name))
 
     except Exception as e:
-        logging.info("ERROR: connection to RabbitMQ server failed.")
-        logging.info(f"Verify the server is running on host: {host_name}.")
-        logging.info(f"The error says: {e}")
+        print("ERROR: connection to RabbitMQ server failed.")
+        print(f"Verify the server is running on host: {host_name}.")
+        print(f"The error says: {e}")
         sys.exit(1)
 
     # Create a channel and connect it to the queue
@@ -89,22 +85,22 @@ def main(host_name = 'localhost', queue_name = 'default_queue'):
         ch.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=False)
 
         # Start consuming messages
-        logging.info('Ready for action! Press CTRL + C to manually close the connection.')
+        print('Ready for action! Press CTRL + C to manually close the connection.')
         ch.start_consuming()
     
     except Exception as e:
-        logging.info("ERROR: something went wrong.")
-        logging.info(f"The error says: {e}")
+        print("ERROR: something went wrong.")
+        print(f"The error says: {e}")
         sys.exit(1)
 
     # If user manually ends the system
     except KeyboardInterrupt:
-        logging.info('User interrupted continuous listening process')
+        print('User interrupted continuous listening process')
         sys.exit(0)
 
     # Close the connection when we are done
     finally:
-        logging.info('Closing Connection...')
+        print('Closing Connection...')
         conn.close()
 
 # ===== Main ==================================================================

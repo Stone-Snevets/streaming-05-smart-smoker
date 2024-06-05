@@ -27,7 +27,6 @@
 
 # Imports
 import csv
-import logging
 import pika
 import sys
 import webbrowser
@@ -41,10 +40,6 @@ QUEUE_NAME_FOOD_1 = 'str5_q_food_1'
 QUEUE_NAME_FOOD_2 = 'str5_q_food_2'
 FILE_TO_READ = 'smoker-temps.csv'
 SHOW_WEB = False
-
-# Create Logger
-logging.basicConfig(level=logging.INFO, format = "%(asctime)s - %(level)s - %(message)s")
-
 
 
 # ===== Functions =============================================================
@@ -83,7 +78,7 @@ def send_msg(host:str,
 
     """
 
-    logging.info(f'opened send_msg({host}, {queue_name_1}, {queue_name_2}, {queue_name_3}, {file_name})')
+    print(f'opened send_msg({host}, {queue_name_1}, {queue_name_2}, {queue_name_3}, {file_name})')
 
     # Open the file
     with open(FILE_TO_READ, 'r') as input_file:
@@ -134,20 +129,20 @@ def send_msg(host:str,
                 if Temp_Smoker != '':
                   tuple_smoker = (Time, Temp_Smoker)
                   ch.basic_publish(exchange="", routing_key=queue_name_1, body=str(tuple_smoker))
-                  logging.info(f'Sent {tuple_smoker} to {queue_name_1}')
+                  print(f'Sent {tuple_smoker} to {queue_name_1}')
 
                 if Temp_Food_1 != '':
                   tuple_food_1 = (Time, Temp_Food_1)
                   ch.basic_publish(exchange="", routing_key=queue_name_2, body=str(tuple_food_1))
-                  logging.info(f'Sent {tuple_food_1} to {queue_name_2}')
+                  print(f'Sent {tuple_food_1} to {queue_name_2}')
                 
                 if Temp_Food_2 != '':
                   tuple_food_2 = (Time, Temp_Food_2)
                   ch.basic_publish(exchange="", routing_key=queue_name_3, body=str(tuple_food_2))
-                  logging.info(f'Sent {tuple_food_2} to {queue_name_3}')
+                  print(f'Sent {tuple_food_2} to {queue_name_3}')
 
         except pika.exceptions.AMQPConnectionError as e:
-            logging.info(f"Error: Connection to RabbitMQ server failed: {e}")
+            print(f"Error: Connection to RabbitMQ server failed: {e}")
             sys.exit(1)
         finally:
             # close the connection to the server
