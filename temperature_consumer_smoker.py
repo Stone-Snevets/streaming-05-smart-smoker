@@ -5,7 +5,7 @@
     Date: May 24, 2024
 
     Copied and modified from streaming-04-multiple-consumers/v3_listening_worker.py
-
+    
 """
 
 # ===== Preliminary Stuff =====================================================
@@ -13,13 +13,62 @@
 # Imports
 import pika
 import sys
+from collections import deque
+from util_logger import setup_logger
 
 # Constants
 HOST = 'localhost'
+MAX_DEQUE_SPACE:int = 5 # 2 readings a minute for 2.5 minutes
 QUEUE_NAME = 'str5_q_smoker'
+
+# Setup custom logging
+logger, logname = setup_logger(__file__)
+
+# Create a deque window
+window = deque(maxlen=MAX_DEQUE_SPACE)
 
 
 # ===== Functions =============================================================
+
+# --- Deque and Flag ---
+def deque_and_flag(msg_body):
+    """
+    Function to append a new time and temperature to the end of a deque
+    -> Converts temperature from a string to a float
+    -> Checks if temperature drops by 15 degrees over a span of 2.5 minutes
+    --> Sends a flag message if temperature does so
+
+    Parameters:
+        msg_body (str): the contents of the latest message
+
+    """
+
+    # Split the string
+    #-> Use the apostrophe (') as a delimeter
+    front_paren, timestamp, comma, temperature, back_paren = msg_body.split("'")
+
+    # Cast the temperature to a float
+    temperature = float(temperature)
+
+    # Append the timestamp and temperature to the deque
+    window.append(temperature)
+
+    # Check for a drastic temperature drop
+    #-> Make sure the smoker has been going on for at least 2.5 minutes (i.e. the deque is full)
+    if len(window) == MAX_DEQUE_SPACE:
+        # If full, subtract the last element of the deque from the first element
+        #-> Earlier temp - latest temp
+        temp_diff = window[0] - window[-1]
+
+        # If the difference is greater than 15
+        # TODO: > or >=
+        if temp_diff >= 15.0:
+            # If yes, we have an issue.  Throw up a flag message
+            logger.info('\n\nFLAG: Significant Temperature Drop in Smoker')
+            logger.info(f'\tOld Temperature:{window[0]}\n\tNew Temperature:{window[-1]}')
+            logger.info(f'\tTimestamp: {timestamp}\n\n')
+
+    
 
 # --- Callback ---
 def callback(ch, method, properties, body):
@@ -37,8 +86,11 @@ def callback(ch, method, properties, body):
 
     """
 
+    # Send the decoded body to the deque
+    deque_and_flag(body.decode())
+
     # Acknowledge that the message is received and processed
-    print(f'Received and processed {body.decode()}')
+    logger.info(f'Received and processed {body.decode()}')
     ch.basic_ack(delivery_tag = method.delivery_tag)
 
 
@@ -60,18 +112,15 @@ def main(host_name = 'localhost', queue_name = 'default_queue'):
         conn = pika.BlockingConnection(pika.ConnectionParameters(host = host_name))
 
     except Exception as e:
-        print("ERROR: connection to RabbitMQ server failed.")
-        print(f"Verify the server is running on host: {host_name}.")
-        print(f"The error says: {e}")
+        logger.error("ERROR: connection to RabbitMQ server failed.")
+        logger.error(f"Verify the server is running on host: {host_name}.")
+        logger.error(f"The error says: {e}")
         sys.exit(1)
 
     # Create a channel and connect it to the queue
     try:
         # Create a channel
         ch = conn.channel()
-
-        # Delete any existing queues with the same name
-        ch.queue_delete(queue=queue_name)
 
         # Declare the queue
         #-> Make the queue durable
@@ -86,22 +135,22 @@ def main(host_name = 'localhost', queue_name = 'default_queue'):
         ch.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=False)
 
         # Start consuming messages
-        print('Ready for action! Press CTRL + C to manually close the connection.')
+        logger.info('Ready for action! Press CTRL + C to manually close the connection.')
         ch.start_consuming()
     
     except Exception as e:
-        print("ERROR: something went wrong.")
-        print(f"The error says: {e}")
+        logger.error("ERROR: something went wrong.")
+        logger.error(f"The error says: {e}")
         sys.exit(1)
 
     # If user manually ends the system
     except KeyboardInterrupt:
-        print('User interrupted continuous listening process')
+        logger.info('User interrupted continuous listening process')
         sys.exit(0)
 
     # Close the connection when we are done
     finally:
-        print('Closing Connection...')
+        logger.info('Closing Connection...')
         conn.close()
 
 # ===== Main ==================================================================
